@@ -20,6 +20,11 @@ from facechain.data_process.preprocessing import Blipv2
 from facechain.merge_lora import merge_lora
 
 
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+elif torch.backends.mps.is_available():
+    device = torch.device("mps")
+
 def _data_process_fn_process(input_img_dir):
     Blipv2()(input_img_dir)
 
@@ -181,7 +186,7 @@ def main_diffusion_inference(pos_prompt, neg_prompt,
     else:
         add_prompt_style = ''
 
-    pipe = pipe.to("cuda")
+    pipe = pipe.to(device)
     images_style = txt2img(pipe, trigger_style + add_prompt_style + pos_prompt, neg_prompt, num_images=10)
     return images_style
 
@@ -254,7 +259,7 @@ def main_diffusion_inference_pose(pose_model_path, pose_image,
         add_prompt_style = ''
     # trigger_style = trigger_style + 'with <input_id> face, '
     # pos_prompt = 'Generate a standard ID photo of a chinese {}, solo, wearing high-class business/working suit, beautiful smooth face, with high-class/simple pure color background, looking straight into the camera with shoulders parallel to the frame, smile, high detail face, best quality, photorealistic'.format(gender)
-    pipe = pipe.to("cuda")
+    pipe = pipe.to(device)
     # print(trigger_style + add_prompt_style + pos_prompt)
     images_style = txt2img_pose(pipe, pose_im, trigger_style + add_prompt_style + pos_prompt, neg_prompt, num_images=10)
     return images_style
@@ -346,7 +351,7 @@ def main_diffusion_inference_multi(pose_model_path, pose_image,
         add_prompt_style = ''
     # trigger_style = trigger_style + 'with <input_id> face, '
     # pos_prompt = 'Generate a standard ID photo of a chinese {}, solo, wearing high-class business/working suit, beautiful smooth face, with high-class/simple pure color background, looking straight into the camera with shoulders parallel to the frame, smile, high detail face, best quality, photorealistic'.format(gender)
-    pipe = pipe.to("cuda")
+    pipe = pipe.to(device)
     # print(trigger_style + add_prompt_style + pos_prompt)
     images_style = txt2img_multi(pipe, control_im, trigger_style + add_prompt_style + pos_prompt, neg_prompt, num_images=10)
     return images_style

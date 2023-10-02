@@ -431,7 +431,8 @@ class Trainer:
     ) -> str:
         # Check Cuda
         if not torch.cuda.is_available():
-            raise gr.Error('CUDA不可用(CUDA not available)')
+            if not torch.backends.mps.is_available():
+                raise gr.Error('(CUDA or MPS not available)')
 
         # Check Instance Valid
         if instance_images is None:

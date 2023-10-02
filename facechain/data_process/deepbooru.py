@@ -16,6 +16,8 @@ from modelscope.hub.snapshot_download import snapshot_download
 # see https://github.com/AUTOMATIC1111/TorchDeepDanbooru for more
 LANCZOS = (Image.Resampling.LANCZOS if hasattr(Image, 'Resampling') else Image.LANCZOS)
 
+if torch.backends.mps.is_available():
+    mps_device = torch.device("mps")
 
 class DeepDanbooruModel(nn.Module):
     def __init__(self):
@@ -726,12 +728,20 @@ class DeepDanbooru:
         self.model.to(torch.float16)
 
     def start(self):
-        self.model.cuda()
+        if torch.cuda.is_available():
+            self.model.cuda()
+        elif torch.backends.mps.is_available():
+            mps_device = torch.device("mps")
+            self.model.to(mps_device)
 
     def stop(self):
         self.model.cpu()
-        torch.cuda.empty_cache()
-        torch.cuda.ipc_collect()
+        if torch.backends.mps.is_available():
+            torch.mps.empty_cache()
+            torch.mps.ipc_collect()
+        elif torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.ipc_collect()
 
     def tag(self, pil_image):
         threshold = 0.5
@@ -743,9 +753,14 @@ class DeepDanbooru:
         pic = resize_image(pil_image.convert("RGB"), 512, 512)
         a = np.expand_dims(np.array(pic, dtype=np.float32), 0) / 255
 
-        with torch.no_grad(), torch.autocast("cuda"):
-            x = torch.from_numpy(a).cuda()
-            y = self.model(x)[0].detach().cpu().numpy()
+        if torch.backends.mps.is_available():
+            with torch.no_grad(), torch.autocast("mps"):
+                x = torch.from_numpy(a).to(mps_device)
+                y = self.model(x)[0].detach().cpu().numpy()
+        elif torch.cuda.is_available():
+            with torch.no_grad(),torch.autocast("cuda"):
+                x = torch.from_numpy(a).cuda()
+                y = self.model(x)[0].detach().cpu().numpy()
 
         probability_dict = {}
 

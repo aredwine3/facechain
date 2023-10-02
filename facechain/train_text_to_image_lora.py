@@ -141,8 +141,14 @@ def get_rot(image):
     model_dir = snapshot_download('Cherrytest/rot_bgr',
                                   revision='v1.0.0')
     model_path = os.path.join(model_dir, 'rot_bgr.onnx')
-    ort_session = onnxruntime.InferenceSession(model_path)
-
+    
+    if torch.cuda.is_available():
+        ort_session = onnxruntime.InferenceSession(model_path, providers=['CUDAExecutionProvider'])
+    elif torch.backends.mps.is_available():
+        ort_session = onnxruntime.InferenceSession(model_path, providers=['CoreMLExecutionProvider'])
+    else:
+        ort_session = onnxruntime.InferenceSession(model_path, providers=[onnxruntime.get_available_providers()[-1]])
+    
     img_cv = cv2.cvtColor(np.asarray(image), cv2.COLOR_RGB2BGR)
     img_clone = img_cv.copy()
     img_np = cv2.resize(img_cv, (224, 224))
@@ -873,7 +879,11 @@ def main():
         lora_layers, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
             lora_layers, optimizer, train_dataloader, lr_scheduler
         )
-    unet = unet.cuda()
+    if torch.cuda.is_available():
+        unet = unet.cuda()
+    elif torch.backends.mps.is_available():
+        mps_device = torch.device("mps")
+        unet = unet.to(mps_device)
     # We need to recalculate our total training steps as the size of the training dataloader may have changed.
     num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
     if overrode_max_train_steps:
@@ -1061,7 +1071,10 @@ def main():
                             )
 
                 del pipeline
-                torch.cuda.empty_cache() 
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache() 
+                elif torch.backends.mps.is_available():
+                    torch.mps.empty_cache()
 
     # Save the lora layers
     accelerator.wait_for_everyone()
